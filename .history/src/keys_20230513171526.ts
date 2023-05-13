@@ -1,3 +1,0 @@
-const keyboardKeys = {
-  ESCAPE: "Escape",
-};
