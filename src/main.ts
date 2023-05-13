@@ -1,5 +1,5 @@
 import "./style.scss";
-import { game } from "./game.ts";
+import { Game } from "./game.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -12,4 +12,5 @@ title.textContent = "Super Collapse!";
 
 app.appendChild(title);
 
+export const game = new Game();
 app.appendChild(game.canvas.view);
