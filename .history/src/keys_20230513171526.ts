@@ -1,0 +1,3 @@
+const keyboardKeys = {
+  ESCAPE: "Escape",
+};
