@@ -65,4 +65,5 @@ export const Colors = {
   HONEYDEW: 0xf0fff0,
   IVORY: 0xfffff0,
   AZURE: 0xf0ffff,
+  TRANSPARENT: "transparent",
 };

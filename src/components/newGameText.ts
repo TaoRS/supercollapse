@@ -11,13 +11,16 @@ const textEl = new PIXI.Text(`New Game`, {
 textEl.eventMode = "static";
 
 textEl.onclick = () => {
+  document.body.style.cursor = "default";
   game.startNewGame();
 };
 
 textEl.onmouseover = () => {
+  document.body.style.cursor = "pointer";
   textEl.style.fill = Colors.RED;
 };
 textEl.onmouseout = () => {
+  document.body.style.cursor = "default";
   textEl.style.fill = Colors.BLACK;
 };
 

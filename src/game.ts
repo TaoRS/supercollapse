@@ -2,7 +2,7 @@ import * as PIXI from "pixi.js";
 import { fpsCounter } from "./components/fpsText";
 import { GameState } from "./types/state";
 import { Colors } from "./colors";
-import GameGrid from "./components/gamegrid";
+import GameBoard from "./components/gameboard";
 import keyboardKeys from "./keys";
 import { newGameText } from "./components/newGameText";
 
@@ -94,24 +94,27 @@ export class Game {
   }
 
   private initGameLoop() {
+    newGameText.x = Game.CANVAS_WIDTH / 2 - newGameText.width / 2;
+    newGameText.y = Game.CANVAS_HEIGHT / 2 - newGameText.height / 2;
+
+    const gameBoard = new GameBoard();
+    gameBoard.container.x = Game.CANVAS_WIDTH * 0.05;
+    gameBoard.container.y = Game.CANVAS_HEIGHT * 0.05;
+    gameBoard.render();
+
+    this.renderPauseOverlay();
+
     this.canvas.ticker.add(() => {
       this.clearStage();
 
       switch (this._gameState) {
         case GameState.NEW_GAME:
-          newGameText.x = Game.CANVAS_WIDTH / 2 - newGameText.width / 2;
-          newGameText.y = Game.CANVAS_HEIGHT / 2 - newGameText.height / 2;
           this.canvas.stage.addChild(newGameText);
           break;
 
         case GameState.PLAYING:
         case GameState.PAUSED:
-          const gameGrid = new GameGrid();
-
-          gameGrid.container.x = Game.CANVAS_WIDTH * 0.05;
-          gameGrid.container.y = Game.CANVAS_HEIGHT * 0.05;
-
-          this.canvas.stage.addChild(gameGrid.container);
+          this.canvas.stage.addChild(gameBoard.container);
 
           if (this.gameIsPaused()) {
             this.renderPauseOverlay();
@@ -123,8 +126,6 @@ export class Game {
           break;
       }
 
-      // this.canvas.stage.addChild(fpsText);
-      // fpsText.text = `FPS: ${Math.round(this.canvas.ticker.FPS).toFixed(2)}`;
       this.canvas.stage.addChild(fpsCounter.container);
       fpsCounter.updateCounter(this.canvas.ticker.FPS);
 
@@ -154,6 +155,8 @@ export class Game {
 
     pausedText.x = Game.CANVAS_WIDTH / 2 - pausedText.width / 2;
     pausedText.y = Game.CANVAS_HEIGHT / 2 - pausedText.height / 2;
+
+    pausedText.visible = this.gameIsPaused();
 
     this.canvas.stage.addChild(pausedText);
   }
