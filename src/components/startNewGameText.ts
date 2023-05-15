@@ -2,7 +2,7 @@ import * as PIXI from "pixi.js";
 import { Colors } from "../colors";
 import { game } from "../main";
 
-const textEl = new PIXI.Text(`New Game`, {
+const textEl = new PIXI.Text(`Start Game`, {
   fontFamily: "Arial",
   fontSize: 21,
   fill: Colors.BLACK,
@@ -11,7 +11,7 @@ const textEl = new PIXI.Text(`New Game`, {
 textEl.eventMode = "static";
 
 textEl.onclick = () => {
-  document.body.style.cursor = "default";
+  resetStyling();
   game.startNewGame();
 };
 
@@ -20,11 +20,15 @@ textEl.onmouseover = () => {
   textEl.style.fill = Colors.RED;
 };
 textEl.onmouseout = () => {
-  document.body.style.cursor = "default";
-  textEl.style.fill = Colors.BLACK;
+  resetStyling();
 };
 
 const container = new PIXI.Container();
 container.addChild(textEl);
 
-export const newGameText = container;
+const resetStyling = () => {
+  document.body.style.cursor = "default";
+  textEl.style.fill = Colors.BLACK;
+};
+
+export const startNewGameText = container;

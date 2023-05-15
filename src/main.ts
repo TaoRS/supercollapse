@@ -1,5 +1,7 @@
 import "./style.scss";
+import * as PIXI from "pixi.js";
 import { Game } from "./game.ts";
+import { Colors } from "./colors.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -10,7 +12,12 @@ if (!app) {
 const title = document.createElement("h1");
 title.textContent = "Super Collapse!";
 
-app.appendChild(title);
+const pixiApp = new PIXI.Application<HTMLCanvasElement>({
+  width: 800,
+  height: 600,
+  backgroundColor: Colors.WHITE,
+});
+export const game = new Game(pixiApp);
 
-export const game = new Game();
+app.appendChild(title);
 app.appendChild(game.canvas.view);
