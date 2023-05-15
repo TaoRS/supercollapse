@@ -4,7 +4,7 @@ import { Colors } from "../colors";
 class FPSCounter {
   public element: PIXI.Text;
   public container: PIXI.Container = new PIXI.Container();
-  public updateInterval: number = 500;
+  public updateInterval: number = 0.5;
 
   constructor(text: PIXI.Text, updateInterval?: number) {
     this.element = text;
@@ -16,9 +16,7 @@ class FPSCounter {
   }
 
   updateCounter(FPS: number) {
-    setInterval(() => {
-      this.element.text = `FPS: ${Math.round(FPS)}`;
-    }, this.updateInterval);
+    this.element.text = `FPS: ${Math.round(FPS)}`;
   }
 }
 

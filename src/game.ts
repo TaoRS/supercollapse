@@ -44,7 +44,7 @@ export class Game {
       e.preventDefault();
 
       if (e.key === keyboardKeys.ESCAPE) {
-        if (this.gameisStarted()) {
+        if (this.gameisStarted() && !this.gameisOver()) {
           this.gameIsPaused() ? this.resumeGame() : this.pauseGame();
         }
       }
@@ -76,7 +76,7 @@ export class Game {
     return this.gameState === GameState.PLAYING;
   }
 
-  gameover() {
+  public gameover() {
     this.gameState = GameState.GAME_OVER;
   }
 
@@ -104,7 +104,9 @@ export class Game {
 
     this.renderPauseOverlay();
 
-    this.canvas.ticker.add(() => {
+    let timeforNewBlock = 0;
+    let timetoUpdateFPSCounter = 0;
+    this.canvas.ticker.add((delta) => {
       this.clearStage();
 
       switch (this._gameState) {
@@ -114,22 +116,36 @@ export class Game {
 
         case GameState.PLAYING:
         case GameState.PAUSED:
+        case GameState.GAME_OVER:
           this.canvas.stage.addChild(gameBoard.container);
 
           if (this.gameIsPaused()) {
             this.renderPauseOverlay();
           }
-          break;
 
-        case GameState.GAME_OVER:
-          //show game over screen
+          if (this.gameIsPlaying()) {
+            timeforNewBlock += delta;
+            // if 1 second has passed
+            if (timeforNewBlock >= gameBoard.blockSpawnInterval) {
+              gameBoard.spawnBlock();
+              timeforNewBlock = 0;
+            }
+          }
+
+          if (this.gameisOver()) {
+            this.renderGameOverText();
+          }
           break;
       }
 
       this.canvas.stage.addChild(fpsCounter.container);
-      fpsCounter.updateCounter(this.canvas.ticker.FPS);
+      timetoUpdateFPSCounter += delta;
+      if (timetoUpdateFPSCounter >= fpsCounter.updateInterval) {
+        fpsCounter.updateCounter(this.canvas.ticker.FPS);
+        timetoUpdateFPSCounter = 0;
+      }
 
-      console.log(this._gameState);
+      // console.log(this._gameState);
     });
   }
 
@@ -159,5 +175,21 @@ export class Game {
     pausedText.visible = this.gameIsPaused();
 
     this.canvas.stage.addChild(pausedText);
+  }
+
+  private renderGameOverText() {
+    const gameOverText = new PIXI.Text(`Game Over`, {
+      fontFamily: "Arial",
+      fontSize: 31,
+      fill: Colors.BLACK,
+      fontWeight: "bold",
+    });
+
+    gameOverText.x = Game.CANVAS_WIDTH / 2 - gameOverText.width / 2;
+    gameOverText.y = Game.CANVAS_HEIGHT / 2 - gameOverText.height / 2;
+
+    gameOverText.visible = this.gameisOver();
+
+    this.canvas.stage.addChild(gameOverText);
   }
 }

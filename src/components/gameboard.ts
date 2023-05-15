@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { Colors } from "../colors";
+import { game } from "../main";
 
 interface IGameGrid {
   rows: number;
@@ -15,9 +16,10 @@ export default class GameBoard {
   blockSize: number = 50;
   cellGap: number = 2;
   borderColor: number = Colors.BLACK;
-  init: boolean = false;
+  initialized: boolean = false;
   blocks: number[][] = [];
   nextBlocks: number[] = [];
+  public blockSpawnInterval: number = 1;
 
   colors: number[] = [Colors.RED, Colors.BLUE, Colors.GREEN];
 
@@ -36,7 +38,8 @@ export default class GameBoard {
   }
 
   private _init() {
-    if (!this.init) {
+    if (!this.initialized) {
+      /*
       this.blocks = new Array(this.rows)
         .fill(0)
         .map(() => new Array(this.cols).fill(Colors.TRANSPARENT));
@@ -48,30 +51,48 @@ export default class GameBoard {
           }
           this.blocks[rowIndex][cellIndex] = this.randomColor();
         });
-      });
+      });*/
 
-      this.generateNewBlocks();
+      // fill last 3 rows with random colors
+      for (let i = 0; i < 3; i++) {
+        let row = new Array(this.cols).fill(Colors.TRANSPARENT);
+        row.forEach((_cell, cellIndex) => {
+          row[cellIndex] = this.randomColor();
+        });
+        this.blocks.push(row);
+      }
 
-      this.init = true;
+      this.initialized = true;
     }
   }
 
   public startNewGame() {
-    this.init = false;
+    this.initialized = false;
     this._init();
   }
 
-  public generateNewBlocks() {
-    this.nextBlocks = new Array(this.cols).fill(0);
+  public spawnBlock() {
+    if (this.blocks.length >= this.rows) {
+      game.gameover();
+    }
 
-    this.nextBlocks.forEach((_cell, index) => {
-      this.nextBlocks[index] = this.randomColor();
-    });
+    if (this.nextBlocks.length < this.cols) {
+      this.nextBlocks.push(this.randomColor());
+      this.renderNewBlock(
+        this.nextBlocks[this.nextBlocks.length - 1],
+        this.nextBlocks.length - 1
+      );
+    }
 
-    console.dir({
-      grid: this.blocks,
-      nextPieceGrid: this.nextBlocks,
-    });
+    if (this.nextBlocks.length >= this.cols) {
+      this.blocks.unshift(this.nextBlocks);
+      this.nextBlocks = [];
+      for (let i = 0; i < this.cols; i++) {
+        this.renderNewBlock(Colors.WHITE, i);
+      }
+    }
+
+    this.render();
   }
 
   public render() {
@@ -114,13 +135,12 @@ export default class GameBoard {
     }
   }
 
-  public renderBlock(blockColor: number, index: number) {
+  private renderNewBlock(blockColor: number, index: number) {
     let cell = new PIXI.Graphics();
     cell.beginFill(blockColor);
     cell.drawRect(0, 0, this.blockSize, this.blockSize);
     cell.x = index * (this.blockSize + this.cellGap);
     cell.y = this.rows * (this.blockSize + this.cellGap) + this.blockSize / 2;
-    cell.visible = false;
     this.container.addChild(cell);
     return cell;
   }
