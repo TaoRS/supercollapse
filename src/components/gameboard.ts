@@ -33,13 +33,14 @@ export default class GameBoard {
   private readonly _blockSize: number = 50;
   private readonly _cellGap: number = 2;
   private readonly _borderColor: number = Colors.BLACK;
-  private readonly _startingRows: number = 6;
-  private readonly _blockSpawnSpeedInMS: number = 500;
+  private readonly _startingRows: number = 3;
+  private readonly _blockSpawnSpeedInMS: number = 1000;
   private readonly _debug: boolean = false;
 
   private _timePassed: number = 0;
   private _board: block[] = [];
   private _nextBlocks: blockType[] = [];
+  public score: number = 0;
 
   public container: PIXI.Container = new PIXI.Container();
 
@@ -177,7 +178,6 @@ export default class GameBoard {
       if (block.coordinates.row === 0) {
         this._board.splice(this._board.indexOf(block), 1);
       }
-
       block.coordinates.row--;
     });
 
@@ -235,6 +235,7 @@ export default class GameBoard {
     }
 
     this._nextBlocks = [];
+    this.score = 0;
 
     this.container.removeChildren();
   }
@@ -365,7 +366,7 @@ export default class GameBoard {
     });
 
     this._moveBlocksDown();
-    this._moveEmptyColumns();
+    this._centerColumns();
   }
 
   private _moveBlocksDown() {
@@ -392,8 +393,24 @@ export default class GameBoard {
     }
   }
 
-  private _moveEmptyColumns() {
-    let moved = false;
+  private _centerColumns(emptyColumns?: number[]) {
+    if (!emptyColumns) {
+      emptyColumns = this._getEmptyColumns();
+    }
+
+    if (emptyColumns.length === 0) {
+      return;
+    }
+
+    emptyColumns.forEach((emptyColumn) => {
+      this._moveColumn(emptyColumn);
+    });
+
+    this._centerColumns([]);
+  }
+
+  private _getEmptyColumns(): number[] {
+    const emptyColumns: number[] = [];
 
     for (let col = 0; col < this._cols; col++) {
       const block = this._getBlock({
@@ -402,15 +419,11 @@ export default class GameBoard {
       });
 
       if (block && block.type === null) {
-        let emptyColumn = col;
-        this._moveColumn(emptyColumn);
-        moved = true;
+        emptyColumns.push(col);
       }
     }
 
-    if (moved) {
-      this._moveEmptyColumns();
-    }
+    return emptyColumns;
   }
 
   private _getBlock(coordinates: coordinates): block | null {
@@ -427,13 +440,35 @@ export default class GameBoard {
 
     if (emptyColumnIsOnTheLeft) {
       for (let col = emptyColumn; col > 0; col--) {
-        this._switchColumns(col, col - 1);
+        this._moveColumnLeft(col);
       }
     }
 
     if (!emptyColumnIsOnTheLeft) {
       for (let col = emptyColumn; col < this._cols - 1; col++) {
-        this._switchColumns(col, col + 1);
+        this._moveColumnRight(col);
+      }
+    }
+  }
+
+  private _moveColumnLeft(col: number) {
+    for (let row = 0; row < this._rows; row++) {
+      const block = this._getBlock({ row: row, col: col });
+      const blockToLeft = this._getBlock({ row: row, col: col - 1 });
+
+      if (block && blockToLeft && block.type === null && blockToLeft.type) {
+        this._switchBlocks(block, blockToLeft);
+      }
+    }
+  }
+
+  private _moveColumnRight(col: number) {
+    for (let row = 0; row < this._rows; row++) {
+      const block = this._getBlock({ row: row, col: col });
+      const blockToRight = this._getBlock({ row: row, col: col + 1 });
+
+      if (block && blockToRight && block.type === null && blockToRight.type) {
+        this._switchBlocks(block, blockToRight);
       }
     }
   }
@@ -442,16 +477,6 @@ export default class GameBoard {
     const block1Type = block1.type;
     block1.type = block2.type;
     block2.type = block1Type;
-  }
-
-  private _switchColumns(col1: number, col2: number) {
-    this._board.forEach((block) => {
-      if (block.coordinates.col === col1) {
-        block.coordinates.col = col2;
-      } else if (block.coordinates.col === col2) {
-        block.coordinates.col = col1;
-      }
-    });
   }
 
   private _locateBlockIndex(coordinates: coordinates): number | null {
