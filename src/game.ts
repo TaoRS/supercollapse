@@ -9,6 +9,7 @@ import { startNewGameText } from "./components/startNewGameText";
 export class Game {
   private _gameState: GameState = GameState.NEW_GAME;
   private _gameStarted: boolean = false;
+  private _bg_audio = new Audio("./bg_music.mp3");
 
   public canvas: PIXI.Application<HTMLCanvasElement>;
 
@@ -72,6 +73,23 @@ export class Game {
     this._renderStartNewGameScreen();
 
     const gameBoard = this._createBoard();
+    const scoreText = new PIXI.Text(`Score: 0`, {
+      fontFamily: "Arial",
+      fontSize: 21,
+      fill: Colors.BLACK,
+    });
+
+    scoreText.x = (this.canvas.view.width / 2) * 1.5;
+    scoreText.y = this.canvas.view.height * 0.05;
+
+    const spawnsLeftText = new PIXI.Text(`Spawns left: 0`, {
+      fontFamily: "Arial",
+      fontSize: 21,
+      fill: Colors.BLACK,
+    });
+
+    spawnsLeftText.x = (this.canvas.view.width / 2) * 1.5;
+    spawnsLeftText.y = this.canvas.view.height * 0.05 + 30;
 
     this.canvas.ticker.add(() => {
       this._clearStage();
@@ -85,21 +103,32 @@ export class Game {
         case GameState.PAUSED:
         case GameState.GAME_OVER:
           if (!this.gameisStarted()) {
+            this._bg_audio.loop = true;
+            this._bg_audio.volume = 1;
+            this._bg_audio.playbackRate = 1.1;
+            this._bg_audio.currentTime = 0.25;
             gameBoard.prepareGame();
             this._gameStarted = true;
           }
 
           this.canvas.stage.addChild(gameBoard.container);
+          this.canvas.stage.addChild(scoreText);
+          this.canvas.stage.addChild(spawnsLeftText);
 
           if (this.gameIsPlaying()) {
+            this._bg_audio.play();
             gameBoard.update(this.canvas.ticker.deltaMS);
+            scoreText.text = `Score: ${gameBoard.score}`;
+            spawnsLeftText.text = `Spawns left: ${gameBoard.linesSpawned}`;
           }
 
           if (this.gameIsPaused()) {
+            this._bg_audio.pause();
             this._renderPauseOverlay();
           }
 
           if (this.gameisOver()) {
+            this._bg_audio.pause();
             this._renderGameOverScreen();
           }
           break;

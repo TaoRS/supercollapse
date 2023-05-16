@@ -24,23 +24,27 @@ type blockType = number | null;
 
 export default class GameBoard {
   private readonly _colors: number[] = [
-    Colors.DARKSLATEGRAY,
-    Colors.SILVER,
-    Colors.PLUM,
+    Colors.TOMATO,
+    Colors.SEAGREEN,
+    Colors.NAVY,
   ];
   private readonly _rows: number = 9;
   private readonly _cols: number = 10;
   private readonly _blockSize: number = 50;
   private readonly _cellGap: number = 2;
-  private readonly _borderColor: number = Colors.BLACK;
+  private readonly _borderColor: number = Colors.DARKSLATEGRAY;
   private readonly _startingRows: number = 3;
-  private readonly _blockSpawnSpeedInMS: number = 1000;
+  private readonly _blockSpawnSpeedInMS: number = 1000 / this._cols;
   private readonly _debug: boolean = false;
+  private readonly _radius: number = 5;
 
   private _timePassed: number = 0;
   private _board: block[] = [];
   private _nextBlocks: blockType[] = [];
+  private _gameOver_audio = new Audio("./game_over.mp3");
+  private _match_audio = new Audio("./match.mp3");
   public score: number = 0;
+  public linesSpawned: number = 100;
 
   public container: PIXI.Container = new PIXI.Container();
 
@@ -65,12 +69,13 @@ export default class GameBoard {
   public update(deltaMS: number) {
     if (this._timeToSpawnBlock(deltaMS)) {
       if (this._spawnAreaIsFull()) {
+        this.linesSpawned--;
         this._clearSpawnedBlocks();
 
         this._moveSpawnedBlocksToBoard();
       }
 
-      if (this._blocksReachedTop()) {
+      if (this._blocksReachedTop() || this.linesSpawned <= 0) {
         this._handleGameOver();
       } else {
         this._generateNextBlock();
@@ -107,7 +112,7 @@ export default class GameBoard {
       cell.lineStyle(2, Colors.BLACK);
     }
 
-    cell.drawRect(0, 0, this._blockSize, this._blockSize);
+    cell.drawRoundedRect(0, 0, this._blockSize, this._blockSize, this._radius);
     cell.x = col * (this._blockSize + this._cellGap);
     cell.y =
       (row + this._cols - this._rows - 1) * (this._blockSize + this._cellGap);
@@ -135,7 +140,13 @@ export default class GameBoard {
       for (let x = 0; x < this._cols; x++) {
         let cell = new PIXI.Graphics();
         cell.lineStyle(1, this._borderColor);
-        cell.drawRect(0, 0, this._blockSize, this._blockSize);
+        cell.drawRoundedRect(
+          0,
+          0,
+          this._blockSize,
+          this._blockSize,
+          this._radius
+        );
         cell.x = x * (this._blockSize + this._cellGap);
         cell.y = y * (this._blockSize + this._cellGap);
         this.container.addChild(cell);
@@ -147,7 +158,13 @@ export default class GameBoard {
     for (let x = 0; x < this._cols; x++) {
       let cell = new PIXI.Graphics();
       cell.lineStyle(1, this._borderColor);
-      cell.drawRect(0, 0, this._blockSize, this._blockSize);
+      cell.drawRoundedRect(
+        0,
+        0,
+        this._blockSize,
+        this._blockSize,
+        this._radius
+      );
       cell.x = x * (this._blockSize + this._cellGap);
       cell.y =
         this._rows * (this._blockSize + this._cellGap) + this._blockSize / 2;
@@ -159,7 +176,7 @@ export default class GameBoard {
     let cell = new PIXI.Graphics();
     let color = blockType || Colors.WHITE;
     cell.beginFill(color);
-    cell.drawRect(0, 0, this._blockSize, this._blockSize);
+    cell.drawRoundedRect(0, 0, this._blockSize, this._blockSize, this._radius);
     cell.x = index * (this._blockSize + this._cellGap);
     cell.y =
       this._rows * (this._blockSize + this._cellGap) + this._blockSize / 2;
@@ -195,6 +212,8 @@ export default class GameBoard {
   }
 
   private _handleGameOver() {
+    this._gameOver_audio.currentTime = 0.2;
+    this._gameOver_audio.play();
     game.gameover();
   }
 
@@ -236,6 +255,7 @@ export default class GameBoard {
 
     this._nextBlocks = [];
     this.score = 0;
+    this.linesSpawned = 100;
 
     this.container.removeChildren();
   }
@@ -291,6 +311,8 @@ export default class GameBoard {
     if (this._board[blockIndex].type === blockType) {
       matches.push(coordinates);
 
+      this.score++;
+
       let newCoordinates: coordinates = { row: row - 1, col: col };
       if (row > 0 && this._locateBlockIndex(newCoordinates)) {
         matches.push(
@@ -340,7 +362,13 @@ export default class GameBoard {
         matches.forEach((match) => {
           const cell = new PIXI.Graphics();
           cell.lineStyle(2, matches.length >= 3 ? Colors.GREEN : Colors.RED);
-          cell.drawRect(0, 0, this._blockSize, this._blockSize);
+          cell.drawRoundedRect(
+            0,
+            0,
+            this._blockSize,
+            this._blockSize,
+            this._radius
+          );
           cell.x = match.col * (this._blockSize + this._cellGap);
           cell.y =
             (match.row + this._cols - this._rows - 1) *
@@ -358,6 +386,8 @@ export default class GameBoard {
   }
 
   private _removeMatches(matches: coordinates[]) {
+    this._match_audio.currentTime = 0.2;
+    this._match_audio.play();
     matches.forEach((match) => {
       const blockIndex = this._locateBlockIndex(match);
       if (blockIndex) {
