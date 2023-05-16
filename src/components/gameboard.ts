@@ -10,18 +10,28 @@ interface IGameGridConfig {
   borderColor?: number;
 }
 
+interface IMatch {
+  row: number;
+  col: number;
+}
+
 export default class GameBoard {
-  private readonly _colors: number[] = [Colors.RED, Colors.BLUE, Colors.GREEN];
+  private readonly _colors: number[] = [
+    Colors.DARKSLATEGRAY,
+    Colors.SILVER,
+    Colors.PLUM,
+  ];
   private readonly _rows: number = 9;
   private readonly _cols: number = 10;
   private readonly _blockSize: number = 50;
   private readonly _cellGap: number = 2;
   private readonly _borderColor: number = Colors.BLACK;
-  private readonly _startingRows: number = 7;
-  private readonly _blockSpawnSpeedInMS: number = 200;
+  private readonly _startingRows: number = 3;
+  private readonly _blockSpawnSpeedInMS: number = 1000;
+  private readonly _debug: boolean = true;
 
   private _timePassed: number = 0;
-  private _blocks: number[][] = [];
+  private _board: number[][] = [];
   private _nextBlocks: number[] = [];
 
   public container: PIXI.Container = new PIXI.Container();
@@ -71,16 +81,39 @@ export default class GameBoard {
   }
 
   private _paintGamingArea() {
-    this._blocks.forEach((row, rowIndex) => {
+    this._board.forEach((row, rowIndex) => {
       row.forEach((_cell, cellIndex) => {
         let cell = new PIXI.Graphics();
         cell.beginFill(_cell);
+
+        if (this._debug) {
+          cell.lineStyle(2, Colors.BLACK);
+        }
+
         cell.drawRect(0, 0, this._blockSize, this._blockSize);
         cell.x = cellIndex * (this._blockSize + this._cellGap);
         cell.y =
-          (rowIndex + this._cols - this._blocks.length - 1) *
+          (rowIndex + this._cols - this._board.length - 1) *
           (this._blockSize + this._cellGap);
+
+        this._addClickEventToBlocks(cell, _cell, rowIndex, cellIndex);
+
         this.container.addChild(cell);
+
+        if (this._debug) {
+          let text = new PIXI.Text(
+            `row: ${rowIndex}\ncol: ${cellIndex}\ncolor: ${this._colors.indexOf(
+              _cell
+            )}`,
+            new PIXI.TextStyle({
+              fontSize: 10,
+              fill: Colors.BLACK,
+            })
+          );
+          text.x = cell.x;
+          text.y = cell.y;
+          this.container.addChild(text);
+        }
       });
     });
   }
@@ -125,7 +158,7 @@ export default class GameBoard {
     for (let i = 0; i < this._cols; i++) {
       this._paintSpawnedBlock(Colors.WHITE, i);
     }
-    this._blocks.push(this._nextBlocks);
+    this._board.push(this._nextBlocks);
     this._nextBlocks = [];
   }
 
@@ -152,12 +185,12 @@ export default class GameBoard {
       row.forEach((_cell, cellIndex) => {
         row[cellIndex] = this._randomColor();
       });
-      this._blocks.push(row);
+      this._board.push(row);
     }
   }
 
   private _clearBlocks() {
-    this._blocks = [];
+    this._board = [];
     this._nextBlocks = [];
 
     this.container.removeChildren();
@@ -176,10 +209,109 @@ export default class GameBoard {
   }
 
   private _blocksReachedTop(): boolean {
-    return this._blocks.length >= this._rows;
+    return this._board.length >= this._rows;
   }
 
   private _spawnAreaIsFull(): boolean {
     return this._nextBlocks.length >= this._cols;
+  }
+  private _checkForMatches(
+    board: number[][],
+    row: number,
+    col: number,
+    color: number,
+    visited: boolean[][]
+  ): IMatch[] {
+    let matches: IMatch[] = [];
+    let rows = board.length;
+    let cols = board[0].length;
+
+    if (visited[row][col]) {
+      return matches;
+    }
+
+    visited[row][col] = true;
+
+    if (board[row][col] === color) {
+      matches.push({ row, col });
+
+      if (row > 0 && board[row - 1][col]) {
+        matches.push(
+          ...this._checkForMatches(board, row - 1, col, color, visited)
+        );
+      }
+
+      if (row < rows - 1 && board[row + 1][col]) {
+        matches.push(
+          ...this._checkForMatches(board, row + 1, col, color, visited)
+        );
+      }
+
+      if (col > 0 && board[row][col - 1]) {
+        matches.push(
+          ...this._checkForMatches(board, row, col - 1, color, visited)
+        );
+      }
+
+      if (col < cols - 1 && board[row][col + 1]) {
+        matches.push(
+          ...this._checkForMatches(board, row, col + 1, color, visited)
+        );
+      }
+    }
+
+    return matches;
+  }
+
+  private _addClickEventToBlocks(
+    cell: PIXI.Graphics,
+    color: number,
+    rowIndex: number,
+    cellIndex: number
+  ) {
+    cell.eventMode = "static";
+
+    cell.onmousedown = () => {
+      const matches: IMatch[] = this._checkForMatches(
+        this._board,
+        rowIndex,
+        cellIndex,
+        color,
+        Array.from(Array(this._board.length), () =>
+          new Array(this._board[0].length).fill(false)
+        )
+      );
+
+      if (this._debug) {
+        matches.length >= 3
+          ? console.log("%c3 or more", "color: green")
+          : console.log("%cless than 3", "color: red");
+
+        matches.forEach((match) => {
+          const cell = new PIXI.Graphics();
+          cell.lineStyle(2, matches.length >= 3 ? Colors.GREEN : Colors.RED);
+          cell.drawRect(0, 0, this._blockSize, this._blockSize);
+          cell.x = match.col * (this._blockSize + this._cellGap);
+          cell.y =
+            (match.row + this._cols - this._board.length - 1) *
+            (this._blockSize + this._cellGap);
+
+          this.container.addChild(cell);
+        });
+      }
+
+      if (matches.length >= 3) {
+        this._removeMatches(matches);
+        this._updateBoard();
+      }
+    };
+  }
+
+  private _removeMatches(matches: IMatch[]) {
+    console.log(matches);
+
+    matches.forEach((match) => {
+      this._board[match.row].splice(match.col, 1);
+    });
   }
 }
