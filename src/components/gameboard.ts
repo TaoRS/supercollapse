@@ -33,7 +33,7 @@ export default class GameBoard {
   private readonly _blockSize: number = 50;
   private readonly _cellGap: number = 2;
   private readonly _borderColor: number = Colors.BLACK;
-  private readonly _startingRows: number = 3;
+  private readonly _startingRows: number = 6;
   private readonly _blockSpawnSpeedInMS: number = 500;
   private readonly _debug: boolean = false;
 
@@ -364,37 +364,94 @@ export default class GameBoard {
       }
     });
 
-    this._moveBlocksDownAndCenter();
+    this._moveBlocksDown();
+    this._moveEmptyColumns();
   }
 
-  private _moveBlocksDownAndCenter() {
+  private _moveBlocksDown() {
     let moved = false;
-    for (let y = this._rows - 1; y >= 0; y--) {
-      for (let x = 0; x < this._cols; x++) {
-        const blockIndex = this._locateBlockIndex({ row: y, col: x });
-        if (blockIndex) {
-          const block = this._board[blockIndex];
-          if (block.type === null) {
-            const blockAboveIndex = this._locateBlockIndex({
-              row: y - 1,
-              col: x,
-            });
-            if (blockAboveIndex) {
-              const blockAbove = this._board[blockAboveIndex];
-              if (blockAbove.type !== null) {
-                block.type = blockAbove.type;
-                blockAbove.type = null;
-                moved = true;
-              }
-            }
+
+    this._board.forEach((block) => {
+      if (block.type === null) {
+        const blockAboveIndex = this._locateBlockIndex({
+          row: block.coordinates.row - 1,
+          col: block.coordinates.col,
+        });
+        if (blockAboveIndex) {
+          const blockAbove = this._board[blockAboveIndex];
+          if (blockAbove.type !== null) {
+            this._switchBlocks(block, blockAbove);
+            moved = true;
           }
         }
+      }
+    });
+
+    if (moved) {
+      this._moveBlocksDown();
+    }
+  }
+
+  private _moveEmptyColumns() {
+    let moved = false;
+
+    for (let col = 0; col < this._cols; col++) {
+      const block = this._getBlock({
+        row: this._rows - 1,
+        col: col,
+      });
+
+      if (block && block.type === null) {
+        let emptyColumn = col;
+        this._moveColumn(emptyColumn);
+        moved = true;
       }
     }
 
     if (moved) {
-      this._moveBlocksDownAndCenter();
+      this._moveEmptyColumns();
     }
+  }
+
+  private _getBlock(coordinates: coordinates): block | null {
+    const blockIndex = this._locateBlockIndex(coordinates);
+    if (blockIndex) {
+      return this._board[blockIndex];
+    }
+
+    return null;
+  }
+
+  private _moveColumn(emptyColumn: number) {
+    const emptyColumnIsOnTheLeft = emptyColumn < this._rows / 2;
+
+    if (emptyColumnIsOnTheLeft) {
+      for (let col = emptyColumn; col > 0; col--) {
+        this._switchColumns(col, col - 1);
+      }
+    }
+
+    if (!emptyColumnIsOnTheLeft) {
+      for (let col = emptyColumn; col < this._cols - 1; col++) {
+        this._switchColumns(col, col + 1);
+      }
+    }
+  }
+
+  private _switchBlocks(block1: block, block2: block) {
+    const block1Type = block1.type;
+    block1.type = block2.type;
+    block2.type = block1Type;
+  }
+
+  private _switchColumns(col1: number, col2: number) {
+    this._board.forEach((block) => {
+      if (block.coordinates.col === col1) {
+        block.coordinates.col = col2;
+      } else if (block.coordinates.col === col2) {
+        block.coordinates.col = col1;
+      }
+    });
   }
 
   private _locateBlockIndex(coordinates: coordinates): number | null {
@@ -406,34 +463,6 @@ export default class GameBoard {
     });
 
     return index >= 0 ? index : null;
-  }
-
-  private _getTotalRows(board: block[]): number {
-    let rows = 0;
-
-    board.forEach((block) => {
-      if (block.type) {
-        if (block.coordinates.row > rows) {
-          rows = block.coordinates.row;
-        }
-      }
-    });
-
-    return rows;
-  }
-
-  private _getTotalCols(board: block[]): number {
-    let cols = 0;
-
-    board.forEach((block) => {
-      if (block.type) {
-        if (block.coordinates.col > cols) {
-          cols = block.coordinates.col;
-        }
-      }
-    });
-
-    return cols;
   }
 
   private _setBlockType(coordinates: coordinates, blockType: blockType) {
