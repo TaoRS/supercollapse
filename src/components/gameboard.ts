@@ -2,7 +2,7 @@ import * as PIXI from "pixi.js";
 import { Colors } from "../colors";
 import { game } from "../main";
 
-interface IGameGridConfig {
+interface gameGridConfig {
   rows?: number;
   cols?: number;
   blockSize?: number;
@@ -10,10 +10,17 @@ interface IGameGridConfig {
   borderColor?: number;
 }
 
-interface IMatch {
+interface coordinates {
   row: number;
   col: number;
 }
+
+interface block {
+  type: blockType;
+  coordinates: coordinates;
+}
+
+type blockType = number | null;
 
 export default class GameBoard {
   private readonly _colors: number[] = [
@@ -27,16 +34,16 @@ export default class GameBoard {
   private readonly _cellGap: number = 2;
   private readonly _borderColor: number = Colors.BLACK;
   private readonly _startingRows: number = 3;
-  private readonly _blockSpawnSpeedInMS: number = 1000;
-  private readonly _debug: boolean = true;
+  private readonly _blockSpawnSpeedInMS: number = 500;
+  private readonly _debug: boolean = false;
 
   private _timePassed: number = 0;
-  private _board: number[][] = [];
-  private _nextBlocks: number[] = [];
+  private _board: block[] = [];
+  private _nextBlocks: blockType[] = [];
 
   public container: PIXI.Container = new PIXI.Container();
 
-  constructor(config?: IGameGridConfig) {
+  constructor(config?: gameGridConfig) {
     if (config) {
       this._rows = config.rows || this._rows;
       this._cols = config.cols || this._cols;
@@ -47,7 +54,7 @@ export default class GameBoard {
   }
 
   public prepareGame() {
-    this._clearBlocks();
+    this._newBoard();
 
     this._spawnStartingBlocks();
 
@@ -58,6 +65,8 @@ export default class GameBoard {
     if (this._timeToSpawnBlock(deltaMS)) {
       if (this._spawnAreaIsFull()) {
         this._clearSpawnedBlocks();
+
+        this._moveSpawnedBlocksToBoard();
       }
 
       if (this._blocksReachedTop()) {
@@ -81,41 +90,43 @@ export default class GameBoard {
   }
 
   private _paintGamingArea() {
-    this._board.forEach((row, rowIndex) => {
-      row.forEach((_cell, cellIndex) => {
-        let cell = new PIXI.Graphics();
-        cell.beginFill(_cell);
-
-        if (this._debug) {
-          cell.lineStyle(2, Colors.BLACK);
-        }
-
-        cell.drawRect(0, 0, this._blockSize, this._blockSize);
-        cell.x = cellIndex * (this._blockSize + this._cellGap);
-        cell.y =
-          (rowIndex + this._cols - this._board.length - 1) *
-          (this._blockSize + this._cellGap);
-
-        this._addClickEventToBlocks(cell, _cell, rowIndex, cellIndex);
-
-        this.container.addChild(cell);
-
-        if (this._debug) {
-          let text = new PIXI.Text(
-            `row: ${rowIndex}\ncol: ${cellIndex}\ncolor: ${this._colors.indexOf(
-              _cell
-            )}`,
-            new PIXI.TextStyle({
-              fontSize: 10,
-              fill: Colors.BLACK,
-            })
-          );
-          text.x = cell.x;
-          text.y = cell.y;
-          this.container.addChild(text);
-        }
-      });
+    this._board.forEach((block) => {
+      this._drawBlock(block);
     });
+  }
+
+  private _drawBlock(block: block) {
+    let { row, col } = block.coordinates;
+    let color = block.type || Colors.WHITE;
+    let cell = new PIXI.Graphics();
+
+    cell.beginFill(color);
+
+    if (this._debug) {
+      cell.lineStyle(2, Colors.BLACK);
+    }
+
+    cell.drawRect(0, 0, this._blockSize, this._blockSize);
+    cell.x = col * (this._blockSize + this._cellGap);
+    cell.y =
+      (row + this._cols - this._rows - 1) * (this._blockSize + this._cellGap);
+
+    this._addClickEventToBlocks(cell, block);
+
+    this.container.addChild(cell);
+
+    if (this._debug) {
+      let text = new PIXI.Text(
+        `row: ${row}\ncol: ${col}\ncolor: ${this._colors.indexOf(color)}`,
+        new PIXI.TextStyle({
+          fontSize: 10,
+          fill: Colors.BLACK,
+        })
+      );
+      text.x = cell.x;
+      text.y = cell.y;
+      this.container.addChild(text);
+    }
   }
 
   private _outlineGamingArea() {
@@ -143,9 +154,10 @@ export default class GameBoard {
     }
   }
 
-  private _paintSpawnedBlock(blockColor: number, index: number) {
+  private _paintSpawnedBlock(blockType: blockType, index: number) {
     let cell = new PIXI.Graphics();
-    cell.beginFill(blockColor);
+    let color = blockType || Colors.WHITE;
+    cell.beginFill(color);
     cell.drawRect(0, 0, this._blockSize, this._blockSize);
     cell.x = index * (this._blockSize + this._cellGap);
     cell.y =
@@ -156,9 +168,29 @@ export default class GameBoard {
 
   private _clearSpawnedBlocks() {
     for (let i = 0; i < this._cols; i++) {
-      this._paintSpawnedBlock(Colors.WHITE, i);
+      this._paintSpawnedBlock(null, i);
     }
-    this._board.push(this._nextBlocks);
+  }
+
+  private _moveSpawnedBlocksToBoard() {
+    this._board.forEach((block) => {
+      if (block.coordinates.row === 0) {
+        this._board.splice(this._board.indexOf(block), 1);
+      }
+
+      block.coordinates.row--;
+    });
+
+    this._nextBlocks.forEach((block, index) => {
+      this._board.push({
+        type: block,
+        coordinates: {
+          row: this._rows - 1,
+          col: index,
+        },
+      });
+    });
+
     this._nextBlocks = [];
   }
 
@@ -180,17 +212,28 @@ export default class GameBoard {
   }
 
   private _spawnStartingBlocks() {
-    for (let i = 0; i < this._startingRows; i++) {
-      let row: number[] = new Array(this._cols).fill(Colors.TRANSPARENT);
-      row.forEach((_cell, cellIndex) => {
-        row[cellIndex] = this._randomColor();
-      });
-      this._board.push(row);
+    const limit = this._rows - this._startingRows;
+    for (let y = this._rows; y >= limit; y--) {
+      for (let x = 0; x < this._cols; x++) {
+        this._setBlockType({ row: y, col: x }, this._randomColor());
+      }
     }
   }
 
-  private _clearBlocks() {
+  private _newBoard() {
     this._board = [];
+    for (let y = 0; y < this._rows; y++) {
+      for (let x = 0; x < this._cols; x++) {
+        this._board.push({
+          type: null,
+          coordinates: {
+            row: y,
+            col: x,
+          },
+        });
+      }
+    }
+
     this._nextBlocks = [];
 
     this.container.removeChildren();
@@ -209,53 +252,69 @@ export default class GameBoard {
   }
 
   private _blocksReachedTop(): boolean {
-    return this._board.length >= this._rows;
+    let reachedTop = false;
+    this._board.forEach((block) => {
+      if (block.coordinates.row === 0 && block.type !== null) {
+        reachedTop = true;
+      }
+    });
+
+    return reachedTop;
   }
 
   private _spawnAreaIsFull(): boolean {
     return this._nextBlocks.length >= this._cols;
   }
   private _checkForMatches(
-    board: number[][],
-    row: number,
-    col: number,
-    color: number,
-    visited: boolean[][]
-  ): IMatch[] {
-    let matches: IMatch[] = [];
-    let rows = board.length;
-    let cols = board[0].length;
+    coordinates: coordinates,
+    blockType: blockType,
+    visited?: coordinates[]
+  ): coordinates[] {
+    let matches: coordinates[] = [];
+    let rows = this._rows;
+    let cols = this._cols;
+    let { row, col } = coordinates;
+    visited = visited || [];
 
-    if (visited[row][col]) {
+    if (visited.find((v) => v.col === col && v.row === row)) {
       return matches;
     }
 
-    visited[row][col] = true;
+    visited.push(coordinates);
 
-    if (board[row][col] === color) {
-      matches.push({ row, col });
+    let blockIndex = this._locateBlockIndex(coordinates);
+    if (!blockIndex) {
+      return matches;
+    }
 
-      if (row > 0 && board[row - 1][col]) {
+    if (this._board[blockIndex].type === blockType) {
+      matches.push(coordinates);
+
+      let newCoordinates: coordinates = { row: row - 1, col: col };
+      if (row > 0 && this._locateBlockIndex(newCoordinates)) {
         matches.push(
-          ...this._checkForMatches(board, row - 1, col, color, visited)
+          ...this._checkForMatches(newCoordinates, blockType, visited)
         );
       }
 
-      if (row < rows - 1 && board[row + 1][col]) {
+      newCoordinates = { row: row + 1, col: col };
+      if (row < rows - 1 && this._locateBlockIndex(newCoordinates)) {
         matches.push(
-          ...this._checkForMatches(board, row + 1, col, color, visited)
+          ...this._checkForMatches(newCoordinates, blockType, visited)
         );
       }
 
-      if (col > 0 && board[row][col - 1]) {
+      newCoordinates = { row: row, col: col - 1 };
+      if (col > 0 && this._locateBlockIndex(newCoordinates)) {
         matches.push(
-          ...this._checkForMatches(board, row, col - 1, color, visited)
+          ...this._checkForMatches(newCoordinates, blockType, visited)
         );
       }
 
-      if (col < cols - 1 && board[row][col + 1]) {
+      newCoordinates = { row: row, col: col + 1 };
+      if (col < cols - 1 && this._locateBlockIndex(newCoordinates)) {
         matches.push(
-          ...this._checkForMatches(board, row, col + 1, color, visited)
+          ...this._checkForMatches(newCoordinates, blockType, visited)
         );
       }
     }
@@ -263,23 +322,13 @@ export default class GameBoard {
     return matches;
   }
 
-  private _addClickEventToBlocks(
-    cell: PIXI.Graphics,
-    color: number,
-    rowIndex: number,
-    cellIndex: number
-  ) {
+  private _addClickEventToBlocks(cell: PIXI.Graphics, block: block) {
     cell.eventMode = "static";
 
     cell.onmousedown = () => {
-      const matches: IMatch[] = this._checkForMatches(
-        this._board,
-        rowIndex,
-        cellIndex,
-        color,
-        Array.from(Array(this._board.length), () =>
-          new Array(this._board[0].length).fill(false)
-        )
+      const matches: coordinates[] = this._checkForMatches(
+        block.coordinates,
+        block.type
       );
 
       if (this._debug) {
@@ -293,7 +342,7 @@ export default class GameBoard {
           cell.drawRect(0, 0, this._blockSize, this._blockSize);
           cell.x = match.col * (this._blockSize + this._cellGap);
           cell.y =
-            (match.row + this._cols - this._board.length - 1) *
+            (match.row + this._cols - this._rows - 1) *
             (this._blockSize + this._cellGap);
 
           this.container.addChild(cell);
@@ -307,11 +356,90 @@ export default class GameBoard {
     };
   }
 
-  private _removeMatches(matches: IMatch[]) {
-    console.log(matches);
-
+  private _removeMatches(matches: coordinates[]) {
     matches.forEach((match) => {
-      this._board[match.row].splice(match.col, 1);
+      const blockIndex = this._locateBlockIndex(match);
+      if (blockIndex) {
+        this._board[blockIndex].type = null;
+      }
     });
+
+    this._moveBlocksDownAndCenter();
+  }
+
+  private _moveBlocksDownAndCenter() {
+    let moved = false;
+    for (let y = this._rows - 1; y >= 0; y--) {
+      for (let x = 0; x < this._cols; x++) {
+        const blockIndex = this._locateBlockIndex({ row: y, col: x });
+        if (blockIndex) {
+          const block = this._board[blockIndex];
+          if (block.type === null) {
+            const blockAboveIndex = this._locateBlockIndex({
+              row: y - 1,
+              col: x,
+            });
+            if (blockAboveIndex) {
+              const blockAbove = this._board[blockAboveIndex];
+              if (blockAbove.type !== null) {
+                block.type = blockAbove.type;
+                blockAbove.type = null;
+                moved = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (moved) {
+      this._moveBlocksDownAndCenter();
+    }
+  }
+
+  private _locateBlockIndex(coordinates: coordinates): number | null {
+    const index = this._board.findIndex((block) => {
+      return (
+        block.coordinates.row === coordinates.row &&
+        block.coordinates.col === coordinates.col
+      );
+    });
+
+    return index >= 0 ? index : null;
+  }
+
+  private _getTotalRows(board: block[]): number {
+    let rows = 0;
+
+    board.forEach((block) => {
+      if (block.type) {
+        if (block.coordinates.row > rows) {
+          rows = block.coordinates.row;
+        }
+      }
+    });
+
+    return rows;
+  }
+
+  private _getTotalCols(board: block[]): number {
+    let cols = 0;
+
+    board.forEach((block) => {
+      if (block.type) {
+        if (block.coordinates.col > cols) {
+          cols = block.coordinates.col;
+        }
+      }
+    });
+
+    return cols;
+  }
+
+  private _setBlockType(coordinates: coordinates, blockType: blockType) {
+    const blockIndex = this._locateBlockIndex(coordinates);
+    if (blockIndex) {
+      this._board[blockIndex].type = blockType;
+    }
   }
 }
