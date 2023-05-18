@@ -1,5 +1,9 @@
 # Super Collapse
 
+Play here: <https://taors.github.io/supercollapse/>
+
+## How to setup
+
 Install
 
 - `npm i`
